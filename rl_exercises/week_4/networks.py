@@ -27,6 +27,7 @@ class QNetwork(nn.Module):
         """
         super().__init__()
 
+        # net is variable that contains/initializes the structure of the network (input, function, hidden, function, output)
         self.net = nn.Sequential(
             OrderedDict(
                 [
@@ -39,6 +40,7 @@ class QNetwork(nn.Module):
             )
         )
 
+    # torch.Tensor is like numpy array that automatically tracks the gradient
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Forward pass.

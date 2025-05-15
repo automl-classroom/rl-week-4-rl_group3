@@ -16,6 +16,7 @@ from rl_exercises.week_4.buffers import ReplayBuffer
 from rl_exercises.week_4.networks import QNetwork
 
 
+# nur für Level 2
 def set_seed(env: gym.Env, seed: int = 0) -> None:
     """
     Seed Python, NumPy, PyTorch and the Gym environment for reproducibility.
@@ -49,7 +50,7 @@ class DQNAgent(AbstractAgent):
 
     def __init__(
         self,
-        env: gym.Env,
+        env: gym.Env,  # has to be initiated must be gym env
         buffer_capacity: int = 10000,
         batch_size: int = 32,
         lr: float = 1e-3,
@@ -134,8 +135,11 @@ class DQNAgent(AbstractAgent):
         # TODO: implement exponential‐decayin
         # ε = ε_final + (ε_start - ε_final) * exp(-total_steps / ε_decay)
         # Currently, it is constant and returns the starting value ε
+        epsilon = self.epsilon_final + (
+            self.epsilon_start - self.epsilon_final
+        ) * np.exp(-self.total_steps / self.epsilon_decay)
 
-        return self.epsilon_start
+        return epsilon
 
     def predict_action(
         self, state: np.ndarray, evaluate: bool = False
@@ -158,21 +162,27 @@ class DQNAgent(AbstractAgent):
         info_out : dict
             Empty dict (compatible with interface).
         """
+        state_tensor = torch.Tensor(state, dtype=torch.float32).unsqueeze(
+            0
+        )  # np.ndarry in torch.Tensor
+        qvals = self.q.forward(state_tensor)
         if evaluate:
             # TODO: select purely greedy action from Q(s)
             with torch.no_grad():
-                qvals = ...  # noqa: F841
+                qvals = self.q(state_tensor)
 
-            action = None
+            action = int(
+                torch.argmax(qvals).item()
+            )  # choose max q value from tensor and return it as a float
         else:
             if np.random.rand() < self.epsilon():
                 # TODO: sample random action
-                action = None
+                action = self.env.action_space.sample()  # draw random action
             else:
                 # TODO: select purely greedy action from Q(s)
-                action = None
+                action = int(torch.argmax(qvals).item())
 
-        return action
+        return action, {}
 
     def save(self, path: str) -> None:
         """
@@ -305,5 +315,6 @@ def main(cfg: DictConfig):
     agent.train(...)
 
 
+# only execute main if the script is being executed directly
 if __name__ == "__main__":
     main()
