@@ -4,8 +4,12 @@ Deep Q-Learning implementation.
 
 from typing import Any, Dict, List, Tuple
 
+import os
+
 import gymnasium as gym
 import hydra
+import matplotlib
+import matplotlib.pyplot as plt  # type: ignore[import]
 import numpy as np
 import torch
 import torch.nn as nn
@@ -14,6 +18,8 @@ from omegaconf import DictConfig
 from rl_exercises.agent import AbstractAgent
 from rl_exercises.week_4.buffers import ReplayBuffer
 from rl_exercises.week_4.networks import QNetwork
+
+matplotlib.use("Qt5Agg")  # Or 'Qt5Agg'
 
 
 def set_seed(env: gym.Env, seed: int = 0) -> None:
@@ -58,6 +64,8 @@ class DQNAgent(AbstractAgent):
         epsilon_final: float = 0.01,
         epsilon_decay: int = 500,
         target_update_freq: int = 1000,
+        hidden_dim: int = 64,
+        num_hidden_layers: int = 1,
         seed: int = 0,
     ) -> None:
         """
@@ -107,8 +115,8 @@ class DQNAgent(AbstractAgent):
         )  # number of neurons on the output layer = number of different actions
 
         # main Q-network and frozen target
-        self.q = QNetwork(obs_dim, n_actions)
-        self.target_q = QNetwork(obs_dim, n_actions)
+        self.q = QNetwork(obs_dim, n_actions, hidden_dim, num_hidden_layers)
+        self.target_q = QNetwork(obs_dim, n_actions, hidden_dim, num_hidden_layers)
         self.target_q.load_state_dict(self.q.state_dict())
 
         self.optimizer = optim.Adam(self.q.parameters(), lr=lr)
@@ -232,9 +240,9 @@ class DQNAgent(AbstractAgent):
         states, actions, rewards, next_states, dones, _ = zip(*training_batch)  # noqa: F841
         s = torch.tensor(np.array(states), dtype=torch.float32)  # noqa: F841
         a = torch.tensor(np.array(actions), dtype=torch.int64).unsqueeze(1)  # noqa: F841
-        r = torch.tensor(np.array(rewards), dtype=torch.float32)  # noqa: F841
+        r = torch.tensor(np.array(rewards), dtype=torch.float32).unsqueeze(1)  # noqa: F841
         s_next = torch.tensor(np.array(next_states), dtype=torch.float32)  # noqa: F841
-        mask = torch.tensor(np.array(dones), dtype=torch.float32)  # noqa: F841
+        mask = torch.tensor(np.array(dones), dtype=torch.float32).unsqueeze(1)  # noqa: F841
 
         # pass batched states through self.q and gather Q(s,a)
         qvals = self.q(s)
@@ -260,7 +268,9 @@ class DQNAgent(AbstractAgent):
         self.total_steps += 1
         return float(loss.item())
 
-    def train(self, num_frames: int, eval_interval: int = 1000) -> None:
+    def train(
+        self, num_frames: int, eval_interval: int = 1000
+    ) -> List[Tuple[int, float]]:
         """
         Run a training loop for a fixed number of frames.
 
@@ -274,6 +284,7 @@ class DQNAgent(AbstractAgent):
         state, _ = self.env.reset()
         ep_reward = 0.0
         recent_rewards: List[float] = []
+        log: List[Tuple[int, float]] = []
 
         for frame in range(1, num_frames + 1):
             action = self.predict_action(state)
@@ -298,22 +309,128 @@ class DQNAgent(AbstractAgent):
                 if len(recent_rewards) % eval_interval == 0:
                     # compute avg over last eval_interval episodes and print
                     avg = sum(recent_rewards[-eval_interval:]) / eval_interval
+                    log.append((frame, avg))
                     print(
                         f"Frame {frame}, AvgReward({eval_interval}): {avg:.2f}, ε={self.epsilon():.3f}"
                     )
 
+        if log[-1][0] <= num_frames - eval_interval:
+            # compute avg over last eval_interval episodes and print
+            avg = sum(recent_rewards[-eval_interval:]) / eval_interval
+            log.append((num_frames, avg))
+            print(
+                f"Frame {num_frames}, AvgReward({eval_interval}): {avg:.2f}, ε={self.epsilon():.3f}"
+            )
+
         print("Training complete.")
+        return log
 
 
 @hydra.main(config_path="../configs/agent/", config_name="dqn", version_base="1.1")
 def main(cfg: DictConfig):
-    # 1) build env
+    # build env
     env = gym.make(cfg.env.name)
     set_seed(env, cfg.seed)
 
-    # 3) instantiate & train the agent
-    agent = DQNAgent(env)
-    agent.train(cfg.train.num_frames, cfg.train.eval_interval)
+    # define parameters to vary neural networtk architecture, replay buffer size and batch size
+    nn_width = cfg.network.hidden_dim
+    nn_depth = cfg.network.num_hidden_layers
+    replay_buffer_sizes = cfg.agent.buffer_capacity
+    batch_sizes = cfg.agent.batch_size
+
+    # vary the neural network architecture -> width
+    results_width = []
+    for width in nn_width:
+        agent = DQNAgent(env, hidden_dim=width)
+        log = agent.train(cfg.train.num_frames, cfg.train.eval_interval)
+        results_width.append((width, log))
+
+    # vary the neural network architecture -> depth
+    results_depth = []
+    for depth in nn_depth:
+        agent = DQNAgent(env, num_hidden_layers=depth)
+        log = agent.train(cfg.train.num_frames, cfg.train.eval_interval)
+        results_depth.append((depth, log))
+
+    # vary the replay buffer size
+    results_buffer = []
+    for buffer_size in replay_buffer_sizes:
+        agent = DQNAgent(env, buffer_capacity=buffer_size)
+        log = agent.train(cfg.train.num_frames, cfg.train.eval_interval)
+        results_buffer.append((buffer_size, log))
+
+    # vary the batch size
+    results_batch = []
+    for batch_size in batch_sizes:
+        agent = DQNAgent(env, batch_size=batch_size)
+        log = agent.train(cfg.train.num_frames, cfg.train.eval_interval)
+        results_batch.append((batch_size, log))
+
+    # Plot all results
+    fig, ax = plt.subplots(nrows=2, ncols=2, figsize=(18, 10))
+
+    # plot results of nn width variation
+    for width, log in results_width:
+        if log:
+            frames, avg_rewards = zip(*log)
+            ax[0, 0].plot(frames, avg_rewards, label=f"width: {width}")
+            ax[0, 0].set_title("Vary dimension of hidden layers of NN", fontsize=12)
+            ax[0, 0].set_xlabel("Frame")
+            ax[0, 0].set_ylabel(f"Average Reward ({cfg.train.eval_interval} episodes)")
+            ax[0, 0].legend()
+            ax[0, 0].grid(True)
+
+    # plot results of nn depth variation
+    for depth, log in results_depth:
+        if log:
+            frames, avg_rewards = zip(*log)
+            ax[0, 1].plot(frames, avg_rewards, label=f"depth: {depth}")
+            ax[0, 1].set_title("Vary number of layers of NN", fontsize=12)
+            ax[0, 1].set_xlabel("Frame")
+            ax[0, 1].set_ylabel(f"Average Reward ({cfg.train.eval_interval} episodes)")
+            ax[0, 1].legend()
+            ax[0, 1].grid(True)
+
+    # plot results of buffer size variation
+    for buffer_size, log in results_buffer:
+        if log:
+            frames, avg_rewards = zip(*log)
+            ax[1, 0].plot(frames, avg_rewards, label=f"buffer size: {buffer_size}")
+            ax[1, 0].set_title("Vary replay buffer size", fontsize=12)
+            ax[1, 0].set_xlabel("Frame")
+            ax[1, 0].set_ylabel(f"Average Reward ({cfg.train.eval_interval} episodes)")
+            ax[1, 0].legend()
+            ax[1, 0].grid(True)
+
+    # plot results of batch size variation
+    for batch_size, log in results_batch:
+        if log:
+            frames, avg_rewards = zip(*log)
+            ax[1, 1].plot(frames, avg_rewards, label=f"batch size: {batch_size}")
+            ax[1, 1].set_title("Vary batch size", fontsize=12)
+            ax[1, 1].set_xlabel("Frame")
+            ax[1, 1].set_ylabel(f"Average Reward ({cfg.train.eval_interval} episodes)")
+            ax[1, 1].legend()
+            ax[1, 1].grid(True)
+
+    # set common labels and title
+    fig.suptitle(
+        "DQN Training Progress: Comparison of NN architectures, replay buffer size and batch size",
+        fontsize=16,
+    )
+    fig.text(
+        0.5,
+        0.94,
+        "default values: hidden dimension (width) = 64, hidden layers (depth) = 1, buffer cap = 10000, batch size = 32",
+        ha="center",
+        fontsize=12,
+    )
+
+    # save the figure
+    file_path = os.path.dirname(os.path.abspath(__file__))
+    fig.savefig(f"{file_path}/plots/NN_architectures.png", dpi=300)
+
+    plt.show()
 
 
 if __name__ == "__main__":
