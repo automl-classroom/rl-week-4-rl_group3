@@ -2,11 +2,11 @@
 env:
   name: CartPole-v1
 
-seed: 0
+seed: 3
 
 agent:
-  buffer_capacity:    [5000, 10000, 15000]  # max replay buffer size
-  batch_size:         [32, 64, 128]         # minibatch size
+  buffer_capacity:    10000  # max replay buffer size
+  batch_size:         32         # minibatch size
   learning_rate:      0.001                 # maps to DQNAgent’s lr
   gamma:              0.99
   epsilon_start:      1.0
@@ -15,9 +15,9 @@ agent:
   target_update_freq: 1000
 
 network:
-  hidden_dim:         [32, 64, 128] # hidden layer size
-  num_hidden_layers:  [1, 2, 3]     # number of hidden layers
+  hidden_dim:         32 # hidden layer size
+  num_hidden_layers:  1     # number of hidden layers
 
 train:
-  num_frames:     20000 # total env steps
+  num_frames:     200000 # total env steps
   eval_interval:  50    # print avg reward every this many episodes
