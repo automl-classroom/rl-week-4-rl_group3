@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Tuple
 
 import gymnasium as gym
 import hydra
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
@@ -182,7 +183,7 @@ class DQNAgent(AbstractAgent):
                 # TODO: select purely greedy action from Q(s)
                 action = int(torch.argmax(qvals).item())
 
-        return action, {}
+        return action
 
     def save(self, path: str) -> None:
         """
@@ -281,9 +282,11 @@ class DQNAgent(AbstractAgent):
         state, _ = self.env.reset()
         ep_reward = 0.0  # reward of this episode, initially 0
         recent_rewards: List[float] = []
+        self.mean_rewards = []
+        self.frames = []
 
         for frame in range(1, num_frames + 1):
-            action, _ = self.predict_action(state)
+            action = self.predict_action(state)
             next_state, reward, done, truncated, _ = self.env.step(
                 action
             )  # one step is being taken and the observations saved
@@ -294,7 +297,7 @@ class DQNAgent(AbstractAgent):
             ep_reward += reward
 
             # update if ready
-            if len(self.buffer) >= self.batch_size:
+            if self.buffer.__len__() >= self.batch_size:
                 # TODO: sample a batch from replay buffer
                 batch = self.buffer.sample()  # sampling a batch of 32 from the buffer
                 _ = self.update_agent(batch)
@@ -307,11 +310,28 @@ class DQNAgent(AbstractAgent):
                 if len(recent_rewards) % 10 == 0:
                     # TODO: compute avg over last eval_interval episodes and print
                     avg = np.mean(recent_rewards[-eval_interval:])
+                    self.mean_rewards.append(avg)
+                    self.frames.append(frame)
                     print(
                         f"Frame {frame}, AvgReward(10): {avg:.2f}, ε={self.epsilon():.3f}"
                     )
 
-        print("Training complete.")
+    def plot_training(self, architecture_name):
+        plt.figure()
+        plt.plot(self.frames, self.mean_rewards)
+        plt.xlabel("Frames")
+        plt.ylabel("mean Rewards")
+        plt.title(
+            f"architecture: {architecture_name},buffer size: {self.buffer.capacity}, batch size: {self.batch_size}"
+        )
+        plt.grid(True)
+
+        filename = f"/Users/claraschindler/Desktop/2-Semester/Reinforcement Learning/rl-week-4-rl_group3/rl_exercises/week_4/plots/{architecture_name}_training_curve.png"
+        plt.savefig(filename)
+        plt.close()
+
+
+print("Training complete.")
 
 
 @hydra.main(config_path="../configs/agent/", config_name="dqn", version_base="1.1")
@@ -321,8 +341,9 @@ def main(cfg: DictConfig):
     set_seed(env, cfg.seed)
 
     # 3) TODO: instantiate & train the agent
-    agent = DQNAgent(env)
-    agent.train(100)
+    agent = DQNAgent(env, 10000, 64)
+    agent.train(100000)
+    agent.plot_training(architecture_name="default_double_batch")
 
 
 # only execute main if the script is being executed directly
