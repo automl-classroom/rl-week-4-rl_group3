@@ -306,9 +306,9 @@ class DQNAgent(AbstractAgent):
                 recent_rewards.append(ep_reward)
                 ep_reward = 0.0
                 # logging
-                if len(recent_rewards) % eval_interval == 0:
+                if len(recent_rewards) % 10 == 0:
                     # compute avg over last eval_interval episodes and print
-                    avg = sum(recent_rewards[-eval_interval:]) / eval_interval
+                    avg = float(np.mean(recent_rewards[-eval_interval:]))
                     log.append((frame, avg))
                     print(
                         f"Frame {frame}, AvgReward({eval_interval}): {avg:.2f}, ε={self.epsilon():.3f}"
@@ -316,7 +316,7 @@ class DQNAgent(AbstractAgent):
 
         if log[-1][0] <= num_frames - eval_interval:
             # compute avg over last eval_interval episodes and print
-            avg = sum(recent_rewards[-eval_interval:]) / eval_interval
+            avg = np.mean(recent_rewards[-eval_interval:])
             log.append((num_frames, avg))
             print(
                 f"Frame {num_frames}, AvgReward({eval_interval}): {avg:.2f}, ε={self.epsilon():.3f}"

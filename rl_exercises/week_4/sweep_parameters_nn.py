@@ -12,7 +12,7 @@ import hydra
 import matplotlib
 import matplotlib.pyplot as plt  # type: ignore[import]
 from omegaconf import DictConfig
-from rl_exercises.week_4.networks import DQNAgent, set_seed
+from rl_exercises.week_4.dqn import DQNAgent, set_seed
 
 matplotlib.use("Qt5Agg")  # Or 'Qt5Agg'
 
@@ -25,19 +25,9 @@ def main(cfg: DictConfig):
 
     # define parameters to vary neural networtk architecture, replay buffer size and batch size
     nn_width = cfg.network.hidden_dim
-    if not isinstance(nn_width, (list, tuple)):
-        raise TypeError("cfg.network.hidden_dim must be a list or tuple of values.")
     nn_depth = cfg.network.num_hidden_layers
-    if not isinstance(nn_depth, (list, tuple)):
-        raise TypeError(
-            "cfg.network.num_hidden_layers must be a list or tuple of values."
-        )
     replay_buffer_sizes = cfg.agent.buffer_capacity
-    if not isinstance(replay_buffer_sizes, (list, tuple)):
-        raise TypeError("cfg.agent.buffer_capacity must be a list or tuple of values.")
     batch_sizes = cfg.agent.batch_size
-    if not isinstance(batch_sizes, (list, tuple)):
-        raise TypeError("cfg.agent.batch_size must be a list or tuple of values.")
 
     # vary the neural network architecture -> width
     results_width = []
@@ -129,7 +119,7 @@ def main(cfg: DictConfig):
 
     # save the figure
     file_path = os.path.dirname(os.path.abspath(__file__))
-    fig.savefig(f"{file_path}/plots/NN_architectures.png", dpi=300)
+    fig.savefig(f"{file_path}/plots/various_NN_architectures.png", dpi=300)
 
     plt.show()
 
