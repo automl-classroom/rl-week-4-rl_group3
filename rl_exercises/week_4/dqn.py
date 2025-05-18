@@ -107,8 +107,8 @@ class DQNAgent(AbstractAgent):
         n_actions = env.action_space.n
 
         # main Q-network and frozen target
-        self.q = QNetwork(obs_dim, n_actions)
-        self.target_q = QNetwork(obs_dim, n_actions)
+        self.q = QNetwork(obs_dim, n_actions, 128)
+        self.target_q = QNetwork(obs_dim, n_actions, 128)
         self.target_q.load_state_dict(self.q.state_dict())
 
         self.optimizer = optim.Adam(self.q.parameters(), lr=lr)
@@ -321,9 +321,7 @@ class DQNAgent(AbstractAgent):
         plt.plot(self.frames, self.mean_rewards)
         plt.xlabel("Frames")
         plt.ylabel("mean Rewards")
-        plt.title(
-            f"architecture: {architecture_name},buffer size: {self.buffer.capacity}, batch size: {self.batch_size}"
-        )
+        plt.title(f"architecture: {architecture_name}", fontsize=12)
         plt.grid(True)
 
         filename = f"/Users/claraschindler/Desktop/2-Semester/Reinforcement Learning/rl-week-4-rl_group3/rl_exercises/week_4/plots/{architecture_name}_training_curve.png"
@@ -343,7 +341,7 @@ def main(cfg: DictConfig):
     # 3) TODO: instantiate & train the agent
     agent = DQNAgent(env, 10000, 64)
     agent.train(100000)
-    agent.plot_training(architecture_name="default_double_batch")
+    agent.plot_training(architecture_name="depth3_width128_buffer10000_batch64")
 
 
 # only execute main if the script is being executed directly

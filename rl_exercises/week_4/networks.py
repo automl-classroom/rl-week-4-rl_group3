@@ -35,6 +35,16 @@ class QNetwork(nn.Module):
                     ("relu1", nn.ReLU()),
                     ("fc2", nn.Linear(hidden_dim, hidden_dim)),
                     ("relu2", nn.ReLU()),
+                    ("fc3", nn.Linear(hidden_dim, hidden_dim)),
+                    ("relu3", nn.ReLU()),
+                    ("fc4", nn.Linear(hidden_dim, hidden_dim)),
+                    ("relu4", nn.ReLU()),
+                    # ("fc5", nn.Linear(hidden_dim, hidden_dim)),
+                    # ("relu5", nn.ReLU()),
+                    # ("fc6", nn.Linear(hidden_dim, hidden_dim)),
+                    # ("relu6", nn.ReLU()),
+                    # ("fc7", nn.Linear(hidden_dim, hidden_dim)),
+                    # ("relu7", nn.ReLU()),
                     ("out", nn.Linear(hidden_dim, n_actions)),
                 ]
             )
