@@ -14,7 +14,13 @@ class QNetwork(nn.Module):
             → Linear(hidden_dim→n_actions)
     """
 
-    def __init__(self, obs_dim: int, n_actions: int, hidden_dim: int = 64) -> None:
+    def __init__(
+        self,
+        obs_dim: int,
+        n_actions: int,
+        hidden_dim: int = 64,
+        num_hidden_layers: int = 1,
+    ) -> None:
         """
         Parameters
         ----------
@@ -27,17 +33,21 @@ class QNetwork(nn.Module):
         """
         super().__init__()
 
-        self.net = nn.Sequential(
-            OrderedDict(
-                [
-                    ("fc1", nn.Linear(obs_dim, hidden_dim)),
-                    ("relu1", nn.ReLU()),
-                    ("fc2", nn.Linear(hidden_dim, hidden_dim)),
-                    ("relu2", nn.ReLU()),
-                    ("out", nn.Linear(hidden_dim, n_actions)),
-                ]
-            )
-        )
+        # dynamic number of hidden layers (copilot)
+        layers = []
+
+        # Input layer
+        layers.append(("fc1", nn.Linear(obs_dim, hidden_dim)))
+        layers.append(("relu1", nn.ReLU()))
+        # Hidden layers
+        for i in range(1, num_hidden_layers):
+            layers.append((f"fc{i + 1}", nn.Linear(hidden_dim, hidden_dim)))
+            layers.append((f"relu{i + 1}", nn.ReLU()))
+        # Output layer
+        layers.append(("out", nn.Linear(hidden_dim, n_actions)))
+
+        # Create the sequential model
+        self.net = nn.Sequential(OrderedDict(layers))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
